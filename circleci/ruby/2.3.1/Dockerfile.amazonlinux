@@ -1,0 +1,39 @@
+###########################################################################
+#
+#--------------------------------------------------------------------------
+# Image Setup
+#--------------------------------------------------------------------------
+#
+# To change its version, see the available Tags on the Docker Hub:
+#    https://hub.docker.com/r/fromscratch/ruby/tags/
+#
+# Note: Base Image name format fromscratch/ruby:{ruby-version}-amazonlinux-{ami-version}-builder
+#
+###########################################################################
+
+FROM amazonlinux:2017.03.0.20170401
+
+LABEL maintainer "from scratch Co.Ltd."
+
+###########################################################################
+# Versions:
+###########################################################################
+
+ENV RUBY_MAJOR 2.3
+ENV RUBY_VERSION 2.3.1
+
+###########################################################################
+# Ruby:
+###########################################################################
+
+RUN yum update -y && \
+    yum install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel mysql mysql-devel bzip2 && \
+    mkdir -p /build/ruby && \
+    curl -s https://cache.ruby-lang.org/pub/ruby/$RUBY_MAJOR/ruby-$RUBY_VERSION.tar.gz | tar -C /build/ruby -xzf - && \
+    cd /build/ruby/ruby-$RUBY_VERSION && \
+    ./configure --disable-install-doc && \
+    make && make install && \
+    gem install bundler && \
+    rm -fr /build/ruby
+
+WORKDIR /target
