@@ -22,6 +22,7 @@ LABEL maintainer "from scratch Co.Ltd."
 ENV NODE_VERSION 7.10.0
 ENV YARN_VERSION 1.5.1
 ENV RUBYOPT=-EUTF-8
+ENV DEBIAN_FRONTEND=noninteractive
 
 ###########################################################################
 # node:
@@ -90,10 +91,25 @@ RUN set -ex \
 # awscli and socat:
 ###########################################################################
 
-RUN apt-get update && \
-  apt-get install -y python python-dev python-pip python-setuptools groff less socat && \
-  pip install --upgrade awscli && \
-  apt-get clean && \
-  rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/*
+RUN apt-get update \
+  && apt-get install -y python python-dev python-pip python-setuptools groff less socat sudo \
+  && pip install --upgrade awscli \
+  && apt-get clean \
+  && rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/*
+
+###########################################################################
+# add user 'circleci':
+# cf. circleci/ruby:2.3.1-node
+# https://hub.docker.com/r/circleci/ruby/tags/
+###########################################################################
+
+RUN groupadd --gid 3434 circleci \
+  && useradd --uid 3434 --gid circleci --shell /bin/bash --create-home circleci \
+  && echo 'circleci ALL=NOPASSWD: ALL' >> /etc/sudoers.d/50-circleci \
+  && echo 'Defaults    env_keep += "DEBIAN_FRONTEND"' >> /etc/sudoers.d/env_keep
+
+USER circleci
 
 WORKDIR /target
+
+CMD ["/bin/sh"]
