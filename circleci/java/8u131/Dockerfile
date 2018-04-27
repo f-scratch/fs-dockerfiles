@@ -52,9 +52,17 @@ RUN apk add --no-cache --virtual=build-dependencies wget ca-certificates unzip &
 # https://hub.docker.com/r/circleci/ruby/tags/
 ###########################################################################
 
-RUN addgroup -g 3434 circleci \
-  && adduser -D -u 3434 -G circleci -s /bin/bash circleci \
-  && echo 'circleci ALL=NOPASSWD: ALL' >> /etc/sudoers.d/50-circleci
+RUN apk add --no-cache bash git openssh tar gzip sudo mysql-client wget && \
+  addgroup -g 3434 circleci && \
+  adduser -D -u 3434 -G circleci -s /bin/bash circleci && \
+  echo 'circleci ALL=NOPASSWD: ALL' > /etc/sudoers
+
+# AWS CLI tools
+RUN apk update --no-cache && \
+    apk add --no-cache --virtual=build-dependencies python py-pip py-setuptools ca-certificates && \
+    pip install --no-cache-dir awscli && \
+    apk del build-dependencies && \
+    rm -rf /var/cache/apk/*
 
 USER circleci
 
