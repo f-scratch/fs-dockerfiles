@@ -47,6 +47,17 @@ RUN apk add --no-cache --virtual=build-dependencies wget ca-certificates unzip &
     rm "/tmp/"*
 
 ###########################################################################
+# python and awscli:
+###########################################################################
+
+RUN apk update --no-cache && \
+    apk add --no-cache --virtual=build-dependencies python py-pip py-setuptools ca-certificates && \
+    pip install --no-cache-dir awscli && \
+    apk del build-dependencies && \
+    apk add --no-cache python && \
+    rm -rf /var/cache/apk/*
+
+###########################################################################
 # add user 'circleci':
 # cf. circleci/ruby:2.3.1-node
 # https://hub.docker.com/r/circleci/ruby/tags/
