@@ -1,0 +1,67 @@
+###########################################################################
+#
+#--------------------------------------------------------------------------
+# Image Setup
+#--------------------------------------------------------------------------
+#
+# To change its version, see the available Tags on the Docker Hub:
+#    https://hub.docker.com/r/fromscratch/hadoop/tags/
+#
+# Note: Base Image name format fromscratch/hadoop:{hadoop-version}_java-{java-version}
+#
+###########################################################################
+
+FROM fromscratch/hadoop:2.7.3_8u181-alpine
+
+LABEL maintainer "from scratch Co.Ltd."
+
+###########################################################################
+# variables:
+###########################################################################
+
+ENV HIVE_VERSION 2.1.1
+ENV HIVE_HOME /opt/hive
+ENV HIVE_CONF_DIR ${HIVE_HOME}/conf
+ENV PATH ${HIVE_HOME}/bin:${HIVE_HOME}/sbin:${PATH}
+ENV CLASSPATH ${HIVE_HOME}/lib/*
+
+ENV SBT_VERSION=0.13.12
+ENV SBT_HOME /opt/sbt
+ENV PATH ${SBT_HOME}/bin:${SBT_HOME}/sbin:${PATH}
+
+USER root
+
+###########################################################################
+# hive binary download
+###########################################################################
+RUN apk add --no-cache --virtual=build-dependencies wget ca-certificates tar && \
+    wget https://archive.apache.org/dist/hive/hive-${HIVE_VERSION}/apache-hive-${HIVE_VERSION}-bin.tar.gz && \
+    tar zxf apache-hive-${HIVE_VERSION}-bin.tar.gz && \
+    mv apache-hive-${HIVE_VERSION}-bin /opt/apache-hive-${HIVE_VERSION}-bin && \
+    ln -s /opt/apache-hive-${HIVE_VERSION}-bin ${HIVE_HOME} && \
+    cp ${HIVE_HOME}/conf/hive-env.sh.template ${HIVE_HOME}/conf/hive-env.sh && \
+    apk del build-dependencies && \
+    rm apache-hive-${HIVE_VERSION}-bin.tar.gz
+
+###########################################################################
+# Copy hive conf from local to container
+###########################################################################
+
+ADD conf/hive-site.xml ${HIVE_CONF_DIR}
+
+###########################################################################
+# sbt binary download
+###########################################################################
+
+RUN apk add --no-cache --virtual=build-dependencies curl && \
+    curl -jksSLH "Cookie: oraclelicense=accept-securebackup-cookie" -o "sbt-$SBT_VERSION.zip" \
+      https://dl.bintray.com/sbt/native-packages/sbt/$SBT_VERSION/sbt-$SBT_VERSION.zip && \
+    unzip -d /opt sbt-$SBT_VERSION.zip && \
+    ln -s /opt/sbt-launcher-packaging-${SBT_VERSION} /opt/sbt && \
+    apk del build-dependencies && \
+    rm -rf sbt-$SBT_VERSION.zip && \
+    sbt sbt-version
+
+WORKDIR /target
+
+CMD ["/bin/sh"]

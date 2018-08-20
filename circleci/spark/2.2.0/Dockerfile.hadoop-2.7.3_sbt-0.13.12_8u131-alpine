@@ -1,0 +1,60 @@
+###########################################################################
+#
+#--------------------------------------------------------------------------
+# Image Setup
+#--------------------------------------------------------------------------
+#
+# To change its version, see the available Tags on the Docker Hub:
+#    https://hub.docker.com/r/fromscratch/hadoop/tags/
+#
+# Note: Base Image name format fromscratch/hadoop:{hadoop-version}_java-{java-version}
+#
+###########################################################################
+
+FROM fromscratch/hadoop:2.7.3_8u131-alpine
+
+LABEL maintainer "from scratch Co.Ltd."
+
+###########################################################################
+# variables:
+###########################################################################
+
+ENV SPARK_VERSION 2.1.1
+ENV SPARK_HOME /opt/spark
+ENV PATH ${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}
+ENV SPARK_DIST_CLASSPATH $HADOOP_HOME/etc/hadoop/*:$HADOOP_HOME/share/hadoop/common/lib/*:$HADOOP_HOME/share/hadoop/common/*:$HADOOP_HOME/share/hadoop/hdfs/*:$HADOOP_HOME/share/hadoop/hdfs/lib/*:$HADOOP_HOME/share/hadoop/hdfs/*:$HADOOP_HOME/share/hadoop/yarn/lib/*:$HADOOP_HOME/share/hadoop/yarn/*:$HADOOP_HOME/share/hadoop/mapreduce/lib/*:$HADOOP_HOME/share/hadoop/mapreduce/*:$HADOOP_HOME/share/hadoop/tools/lib/*
+
+ENV SBT_VERSION=0.13.12
+ENV SBT_HOME /opt/sbt
+ENV PATH ${SBT_HOME}/bin:${SBT_HOME}/sbin:${PATH}
+
+USER root
+
+###########################################################################
+# spark binary download
+###########################################################################
+RUN apk add --no-cache --virtual=build-dependencies curl && \
+    curl -sL --retry 3 \
+      "http://d3kbcqa49mib13.cloudfront.net/spark-${SPARK_VERSION}-bin-without-hadoop.tgz" \
+      | gunzip \
+      | tar x -C /opt/ && \
+    ln -s /opt/spark-${SPARK_VERSION}-bin-without-hadoop ${SPARK_HOME} && \
+    apk del build-dependencies && \
+    rm -rf ${SPARK_HOME}/examples ${SPARK_HOME}/ec2
+
+###########################################################################
+# sbt binary download
+###########################################################################
+
+RUN apk add --no-cache --virtual=build-dependencies curl && \
+    curl -jksSLH "Cookie: oraclelicense=accept-securebackup-cookie" -o "sbt-$SBT_VERSION.zip" \
+      https://dl.bintray.com/sbt/native-packages/sbt/$SBT_VERSION/sbt-$SBT_VERSION.zip && \
+    unzip -d /opt sbt-$SBT_VERSION.zip && \
+    ln -s /opt/sbt-launcher-packaging-${SBT_VERSION} /opt/sbt && \
+    apk del build-dependencies && \
+    rm -rf sbt-$SBT_VERSION.zip && \
+    sbt sbt-version
+
+WORKDIR /target
+
+CMD ["/bin/sh"]

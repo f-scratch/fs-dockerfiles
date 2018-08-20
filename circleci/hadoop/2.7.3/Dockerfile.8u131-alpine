@@ -1,0 +1,62 @@
+###########################################################################
+#
+#--------------------------------------------------------------------------
+# Image Setup
+#--------------------------------------------------------------------------
+#
+# To change its version, see the available Tags on the Docker Hub:
+#    https://hub.docker.com/r/fromscratch/hadoop/tags/
+#
+# Note: Base Image name format fromscratch/hadoop:{hadoop-version}_java-{java-version}
+#
+###########################################################################
+
+FROM fromscratch/java:8u131-alpine
+
+LABEL maintainer "from scratch Co.Ltd."
+
+###########################################################################
+# variables:
+###########################################################################
+
+ENV HADOOP_VERSION 2.7.3
+ENV HADOOP_HOME /opt/hadoop
+ENV PATH ${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin:${PATH}
+ENV CLASSPATH ${HADOOP_HOME}/lib/*
+
+USER root
+
+###########################################################################
+# hadoop binary download
+###########################################################################
+RUN apk add --no-cache --virtual=build-dependencies wget ca-certificates tar && \
+    wget https://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz && \
+    tar zxf hadoop-${HADOOP_VERSION}.tar.gz && \
+    mkdir /opt && \
+    mv hadoop-${HADOOP_VERSION} /opt/hadoop-${HADOOP_VERSION} && \
+    ln -s ${HADOOP_HOME}-${HADOOP_VERSION} ${HADOOP_HOME} && \
+    apk del build-dependencies && \
+    rm hadoop-${HADOOP_VERSION}.tar.gz
+
+###########################################################################
+# Copy hadoop conf from local to container
+###########################################################################
+
+RUN mkdir -p $HADOOP_HOME/etc/hadoop
+ADD conf/core-site.xml ${HADOOP_HOME}/conf
+ADD conf/hdfs-site.xml ${HADOOP_HOME}/conf
+
+###########################################################################
+# download Java Cryptography Extension
+###########################################################################
+RUN apk add --no-cache --virtual=build-dependencies curl ca-certificates unzip && \
+    cd /tmp/ && curl -LO "http://download.oracle.com/otn-pub/java/jce/8/jce_policy-8.zip" -H 'Cookie: oraclelicense=accept-securebackup-cookie' && \
+    unzip jce_policy-8.zip && \
+    rm jce_policy-8.zip && \
+    yes |mv -f /tmp/UnlimitedJCEPolicyJDK8/*.jar $JAVA_HOME/jre/lib/security/  && \
+    apk del build-dependencies && \
+    rm -fr "/tmp/"*
+
+WORKDIR /target
+
+CMD ["/bin/sh"]
