@@ -19,7 +19,7 @@ LABEL maintainer "from scratch Co.Ltd."
 # variables:
 ###########################################################################
 
-ENV SPARK_VERSION 2.1.1
+ENV SPARK_VERSION 2.2.0
 ENV SPARK_HOME /opt/spark
 ENV PATH ${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}
 ENV SPARK_DIST_CLASSPATH $HADOOP_HOME/etc/hadoop/*:$HADOOP_HOME/share/hadoop/common/lib/*:$HADOOP_HOME/share/hadoop/common/*:$HADOOP_HOME/share/hadoop/hdfs/*:$HADOOP_HOME/share/hadoop/hdfs/lib/*:$HADOOP_HOME/share/hadoop/hdfs/*:$HADOOP_HOME/share/hadoop/yarn/lib/*:$HADOOP_HOME/share/hadoop/yarn/*:$HADOOP_HOME/share/hadoop/mapreduce/lib/*:$HADOOP_HOME/share/hadoop/mapreduce/*:$HADOOP_HOME/share/hadoop/tools/lib/*
@@ -27,8 +27,6 @@ ENV SPARK_DIST_CLASSPATH $HADOOP_HOME/etc/hadoop/*:$HADOOP_HOME/share/hadoop/com
 ENV SBT_VERSION=0.13.12
 ENV SBT_HOME /opt/sbt
 ENV PATH ${SBT_HOME}/bin:${SBT_HOME}/sbin:${PATH}
-
-USER root
 
 ###########################################################################
 # spark binary download
@@ -54,6 +52,8 @@ RUN apk add --no-cache --virtual=build-dependencies curl && \
     apk del build-dependencies && \
     rm -rf sbt-$SBT_VERSION.zip && \
     sbt sbt-version
+
+USER circleci
 
 WORKDIR /target
 

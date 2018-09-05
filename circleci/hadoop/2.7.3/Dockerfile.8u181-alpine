@@ -22,7 +22,7 @@ LABEL maintainer "from scratch Co.Ltd."
 ENV HADOOP_VERSION 2.7.3
 ENV HADOOP_HOME /opt/hadoop
 ENV PATH ${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin:${PATH}
-ENV CLASSPATH ${HADOOP_HOME}/lib/*
+ENV HADOOP_CLASSPATH ${HADOOP_HOME}/lib/*
 
 USER root
 
@@ -39,12 +39,11 @@ RUN apk add --no-cache --virtual=build-dependencies wget ca-certificates tar && 
     rm hadoop-${HADOOP_VERSION}.tar.gz
 
 ###########################################################################
-# Copy hadoop conf from local to container
+# mysql driver link for hadoop
 ###########################################################################
 
-RUN mkdir -p $HADOOP_HOME/etc/hadoop
-ADD conf/core-site.xml ${HADOOP_HOME}/conf
-ADD conf/hdfs-site.xml ${HADOOP_HOME}/conf
+RUN ln -s ${JAVA_HOME}/lib/mysql-connector-java-${MYSQL_CONNECTOR_JAVA_VERSION}-bin.jar \
+    ${HADOOP_HOME}/lib/mysql-connector-java-${MYSQL_CONNECTOR_JAVA_VERSION}-bin.jar
 
 ###########################################################################
 # download Java Cryptography Extension
