@@ -23,9 +23,7 @@ ENV HIVE_VERSION 2.1.1
 ENV HIVE_HOME /opt/hive
 ENV HIVE_CONF_DIR ${HIVE_HOME}/conf
 ENV PATH ${HIVE_HOME}/bin:${HIVE_HOME}/sbin:${PATH}
-ENV CLASSPATH ${HIVE_HOME}/lib/*
-
-USER root
+ENV HIVE_CLASSPATH ${HIVE_HOME}/lib/*
 
 ###########################################################################
 # hive binary download
@@ -40,10 +38,13 @@ RUN apk add --no-cache --virtual=build-dependencies wget ca-certificates tar && 
     rm apache-hive-${HIVE_VERSION}-bin.tar.gz
 
 ###########################################################################
-# Copy hive conf from local to container
+# mysql driver link for hadoop
 ###########################################################################
 
-ADD conf/hive-site.xml ${HIVE_CONF_DIR}
+RUN ln -s ${JAVA_HOME}/lib/mysql-connector-java-${MYSQL_CONNECTOR_JAVA_VERSION}-bin.jar \
+    ${HIVE_HOME}/lib/mysql-connector-java-${MYSQL_CONNECTOR_JAVA_VERSION}-bin.jar
+
+USER circleci
 
 WORKDIR /target
 
