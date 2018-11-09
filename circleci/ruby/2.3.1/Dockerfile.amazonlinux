@@ -27,7 +27,7 @@ ENV RUBY_VERSION 2.3.1
 ###########################################################################
 
 RUN yum update -y && \
-    yum install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel mysql mysql-devel bzip2 && \
+    yum install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel mysql mysql-devel bzip2 postgresql postgresql-devel && \
     mkdir -p /build/ruby && \
     curl -s https://cache.ruby-lang.org/pub/ruby/$RUBY_MAJOR/ruby-$RUBY_VERSION.tar.gz | tar -C /build/ruby -xzf - && \
     cd /build/ruby/ruby-$RUBY_VERSION && \
