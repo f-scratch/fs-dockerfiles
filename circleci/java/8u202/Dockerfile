@@ -20,9 +20,9 @@ LABEL maintainer "from scratch Co.Ltd."
 ###########################################################################
 
 ENV JAVA_VERSION=8 \
-    JAVA_UPDATE=181 \
-    JAVA_BUILD=13 \
-    JAVA_PATH=96a7b8442fe848ef90c96a2fad6ed6d1 \
+    JAVA_UPDATE=202 \
+    JAVA_BUILD=08 \
+    JAVA_PATH=1961070e4c9b4e26a04e7f5a083f551e \
     JAVA_HOME="/usr/lib/jvm/default-jvm" \
     MYSQL_CONNECTOR_JAVA_VERSION=5.1.40
 
@@ -32,8 +32,8 @@ ENV JAVA_VERSION=8 \
 
 RUN apk add --no-cache --virtual=build-dependencies wget ca-certificates unzip && \
     cd "/tmp" && \
-    wget --header "Cookie: oraclelicense=accept-securebackup-cookie;" \
-        "http://download.oracle.com/otn-pub/java/jdk/${JAVA_VERSION}u${JAVA_UPDATE}-b${JAVA_BUILD}/${JAVA_PATH}/jdk-${JAVA_VERSION}u${JAVA_UPDATE}-linux-x64.tar.gz" && \
+    wget --no-cookies --no-check-certificate --header "Cookie: oraclelicense=accept-securebackup-cookie" \
+        "https://download.oracle.com/otn-pub/java/jdk/${JAVA_VERSION}u${JAVA_UPDATE}-b${JAVA_BUILD}/${JAVA_PATH}/jdk-${JAVA_VERSION}u${JAVA_UPDATE}-linux-x64.tar.gz" && \
     tar -xzf "jdk-${JAVA_VERSION}u${JAVA_UPDATE}-linux-x64.tar.gz" && \
     mkdir -p "/usr/lib/jvm" && \
     mv "/tmp/jdk1.${JAVA_VERSION}.0_${JAVA_UPDATE}" "/usr/lib/jvm/java-${JAVA_VERSION}-oracle" && \
@@ -73,10 +73,10 @@ RUN apk update --no-cache && \
 # add user 'circleci':
 # cf. circleci/ruby:2.3.1-node
 # https://hub.docker.com/r/circleci/ruby/tags/
-# libstdc++ for gradle
+# maven for executing maven
 ###########################################################################
 
-RUN apk add --no-cache bash git openssh tar gzip sudo mysql-client wget libstdc++ && \
+RUN apk add --no-cache bash git openssh tar gzip sudo mysql-client wget maven && \
   addgroup -g 3434 circleci && \
   adduser -D -u 3434 -G circleci -s /bin/bash circleci && \
   echo 'circleci ALL=NOPASSWD: ALL' > /etc/sudoers
