@@ -48,17 +48,6 @@ RUN apk add --no-cache --virtual=build-dependencies wget ca-certificates unzip &
     rm "/tmp/"*
 
 ###########################################################################
-# Install mysql client & mysql-connector-java for hivemetastore
-###########################################################################
-
-RUN apk add --no-cache --no-progress mysql-client && \
-    apk add --no-cache --virtual=build-dependencies wget ca-certificates tar && \
-    wget -q -O - http://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-${MYSQL_CONNECTOR_JAVA_VERSION}.tar.gz | tar -xzf - -C /tmp && \
-    mv /tmp/mysql-connector-java-${MYSQL_CONNECTOR_JAVA_VERSION}/mysql-connector-java-${MYSQL_CONNECTOR_JAVA_VERSION}-bin.jar ${JAVA_HOME}/lib && \
-    apk del build-dependencies && \
-    rm -rf /tmp/mysql-connector-java-${MYSQL_CONNECTOR_JAVA_VERSION}
-
-###########################################################################
 # python and awscli and curl:
 ###########################################################################
 
@@ -76,7 +65,7 @@ RUN apk update --no-cache && \
 # maven for executing maven
 ###########################################################################
 
-RUN apk add --no-cache bash git openssh tar gzip sudo mysql-client wget maven && \
+RUN apk add --no-cache bash git openssh tar gzip sudo wget maven && \
   addgroup -g 3434 circleci && \
   adduser -D -u 3434 -G circleci -s /bin/bash circleci && \
   echo 'circleci ALL=NOPASSWD: ALL' > /etc/sudoers
