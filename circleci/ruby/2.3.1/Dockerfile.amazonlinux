@@ -13,7 +13,9 @@
 
 FROM amazonlinux:2017.03.0.20170401
 
-LABEL maintainer "from scratch Co.Ltd."
+LABEL name="fromscratch/ruby:2.3.1-amazonlinux"
+LABEL version="2017.03-builder"
+LABEL maintainer="from scratch Co.Ltd."
 
 ###########################################################################
 # Versions:
@@ -21,6 +23,7 @@ LABEL maintainer "from scratch Co.Ltd."
 
 ENV RUBY_MAJOR 2.3
 ENV RUBY_VERSION 2.3.1
+ENV IMAGEMAGICK_VERSION 6.9.10-33
 
 ###########################################################################
 # Ruby:
@@ -34,6 +37,21 @@ RUN yum update -y && \
     ./configure --disable-install-doc && \
     make && make install && \
     gem install bundler && \
+    yum clean all && \
+    gem cleanup all && \
     rm -fr /build/ruby
+
+###########################################################################
+# ImageMagick@6:
+###########################################################################
+
+RUN mkdir -p /build/imagemagick && \
+    curl -s ftp://ftp.kddlabs.co.jp/graphics/ImageMagick/releases/ImageMagick-$IMAGEMAGICK_VERSION.tar.gz | tar -C /build/imagemagick -xzf - && \
+    cd /build/imagemagick/ImageMagick-$IMAGEMAGICK_VERSION && \
+    ./configure && \
+    make && make install && \
+    yum install -y libjpeg-devel libpng-devel ImageMagick-devel && \
+    rm -fr /build/imagemagick && \
+    yum clean all
 
 WORKDIR /target
