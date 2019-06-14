@@ -25,6 +25,14 @@ ENV RUBYOPT=-EUTF-8
 ENV DEBIAN_FRONTEND=noninteractive
 
 ###########################################################################
+# avoid apt-get update error:
+# cf. https://qiita.com/rh_taro/items/40373a30ead444ae9ca7
+###########################################################################
+
+RUN echo "deb http://deb.debian.org/debian jessie main" > /etc/apt/sources.list &&\
+    echo "deb http://security.debian.org jessie/updates main" >> /etc/apt/sources.list
+
+###########################################################################
 # node:
 ###########################################################################
 
