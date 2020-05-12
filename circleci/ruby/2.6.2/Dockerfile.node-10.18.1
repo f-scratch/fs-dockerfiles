@@ -36,7 +36,10 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 ###########################################################################
 
 RUN yum update -y && \
-    yum install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel mysql mysql-devel bzip2 postgresql postgresql-devel sudo tar
+    yum install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel \
+    mysql mysql-devel bzip2 postgresql postgresql-devel sudo tar libXi libX11 \
+    libXcomposite libXcursor libXdamage libXext libXtst libXi.so.6 cups-libs \
+    libXScrnSaver libdrm libXrandr libgbm alsa-lib atk at-spi2-atk pango gtk3
 
 ###########################################################################
 # Ruby:
@@ -51,10 +54,22 @@ RUN mkdir -p /build/ruby && \
     rm -fr /build/ruby
 
 ###########################################################################
+# add user 'circleci':
+# cf. circleci/ruby:2.6.2-node
+# https://hub.docker.com/r/circleci/ruby/tags/
+###########################################################################
+
+RUN groupadd --gid 3434 circleci \
+  && useradd --uid 3434 --gid circleci --shell /bin/bash --create-home circleci \
+  && echo 'circleci ALL=NOPASSWD: ALL' >> /etc/sudoers.d/50-circleci \
+  && echo 'Defaults    env_keep += "DEBIAN_FRONTEND"' >> /etc/sudoers.d/env_keep
+
+###########################################################################
 # node:
 ###########################################################################
 
-ENV NVM_DIR /root/.nvm
+ENV HOME /home/circleci
+ENV NVM_DIR /home/circleci/.nvm
 
 RUN echo $HOME && \
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.33.8/install.sh | bash && \
@@ -63,9 +78,11 @@ RUN echo $HOME && \
     nvm use ${NODE_VERSION} && \
     nvm alias ${NODE_VERSION} && \
     npm install eslint --save-dev && \
-    echo "" >> ~/.bashrc && \
-    echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc && \
-    echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm' >> ~/.bashrc
+    echo "" >> /home/circleci/.bashrc && \
+    echo 'export NVM_DIR="/home/circleci/.nvm"' >> /home/circleci/.bashrc && \
+    echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm' >> /home/circleci/.bashrc && \
+    chmod -R 755 $NVM_DIR && \
+    chown -R circleci:circleci $NVM_DIR
 
 ###########################################################################
 # YARN:
@@ -74,8 +91,12 @@ RUN echo $HOME && \
 RUN [ -s "$NVM_DIR/nvm.sh" ] && \
     . $NVM_DIR/nvm.sh && \
     curl -o- -L https://yarnpkg.com/install.sh | bash -s -- --version ${YARN_VERSION} && \
-    echo "" >> ~/.bashrc && \
-    echo 'export PATH="$HOME/.yarn/bin:$PATH"' >> ~/.bashrc
+    echo "" >> /home/circleci/.bashrc && \
+    echo 'export PATH="/home/circleci/.yarn/bin:$PATH"' >> /home/circleci/.bashrc && \
+    chmod -R 755 /home/circleci/.yarn && \
+    chown -R circleci:circleci /home/circleci/.yarn && \
+    chmod -R 755 /home/circleci/.config && \
+    chown -R circleci:circleci /home/circleci/.config
 
 ###########################################################################
 # awscli and socat:
@@ -85,6 +106,12 @@ RUN curl -o- https://bootstrap.pypa.io/get-pip.py | python && \
     pip install pip --upgrade && \
     pip install awscli
 
-WORKDIR /target
+RUN mkdir -p /home/circleci/target && \
+    chmod -R 755 /home/circleci/target && \
+    chown -R circleci:circleci /home/circleci/target
+
+WORKDIR /home/circleci/target
+
+USER circleci
 
 CMD ["/bin/bash"]
