@@ -23,7 +23,7 @@ LABEL maintainer="from scratch Co.Ltd."
 
 ENV RUBY_MAJOR 2.3
 ENV RUBY_VERSION 2.3.1
-ENV IMAGEMAGICK_VERSION 6.9.10-33
+ENV IMAGEMAGICK_VERSION 6.9.10-97
 
 ###########################################################################
 # Ruby:
@@ -36,7 +36,7 @@ RUN yum update -y && \
     cd /build/ruby/ruby-$RUBY_VERSION && \
     ./configure --disable-install-doc && \
     make && make install && \
-    gem install bundler && \
+    gem install bundler -v 2.0.1 && \
     yum clean all && \
     gem cleanup all && \
     rm -fr /build/ruby
@@ -53,5 +53,15 @@ RUN mkdir -p /build/imagemagick && \
     yum install -y libjpeg-devel libpng-devel ImageMagick-devel && \
     rm -fr /build/imagemagick && \
     yum clean all
+
+###########################################################################
+# Cloud SDK:
+###########################################################################
+
+RUN yum install -y which && \
+    ln -s /usr/bin/python /usr/local/bin/python2.7 && \
+    curl https://sdk.cloud.google.com > install.sh && bash install.sh --install-dir=/usr/local/gcloud --disable-prompts && \
+    yum clean all
+ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
 
 WORKDIR /target

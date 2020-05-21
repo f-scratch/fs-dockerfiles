@@ -94,10 +94,18 @@ RUN set -ex \
 ###########################################################################
 
 RUN apt-get update \
-  && apt-get install -y python python-dev python-pip python-setuptools groff less socat sudo locales graphviz mysql-client\
+  && apt-get install -y python python-dev python-pip python-setuptools groff less socat sudo locales graphviz mysql-client \
   && pip install --upgrade awscli \
   && apt-get clean \
   && rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/*
+
+###########################################################################
+# Cloud SDK:
+###########################################################################
+
+RUN curl https://sdk.cloud.google.com > install.sh && bash install.sh --install-dir=/usr/local/gcloud --disable-prompts
+
+ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
 
 ###########################################################################
 # add user 'circleci':
