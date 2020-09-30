@@ -92,7 +92,7 @@ RUN set -ex \
 ###########################################################################
 
 RUN apt-get update \
-  && apt-get install -y python python-dev python-pip python-setuptools groff less socat sudo locales graphviz default-mysql-client\
+  && apt-get install -y python python-dev python-pip python-setuptools groff less socat sudo locales graphviz default-mysql-client unixodbc-dev \
   && pip install --upgrade awscli \
   && apt-get clean \
   && rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/*
