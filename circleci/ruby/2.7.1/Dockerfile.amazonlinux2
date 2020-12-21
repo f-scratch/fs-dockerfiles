@@ -36,7 +36,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 ###########################################################################
 
 RUN yum update -y && \
-    yum install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel mysql mysql-devel bzip2 postgresql postgresql-devel sudo tar libiodbc unixODBC.x86_64
+    yum install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel mysql mysql-devel bzip2 postgresql postgresql-devel sudo tar libiodbc unixODBC.x86_64 unixODBC-devel.x86_64
 
 ###########################################################################
 # Ruby:
