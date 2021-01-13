@@ -5,9 +5,9 @@
 #--------------------------------------------------------------------------
 #
 # To change its version, see the available Tags on the Docker Hub:
-#    https://hub.docker.com/r/fromscratch/hadoop/tags/
+#    https://hub.docker.com/r/fromscratch/sbt/tags/
 #
-# Note: Base Image name format fromscratch/hadoop:{hadoop-version}_java-{java-version}
+# Note: Base Image name format fromscratch/sbt:{sbt-version}_hadoop-{hadoop-version}_java-{java-version}-apline
 #
 ###########################################################################
 
@@ -27,13 +27,13 @@ ENV PATH ${SBT_HOME}/bin:${SBT_HOME}/sbin:${PATH}
 # sbt binary download
 ###########################################################################
 
-RUN apk add --no-cache --virtual=build-dependencies curl && \
+RUN apk add --no-cache --virtual=build-dependencies wget ca-certificates && \
     wget https://github.com/sbt/sbt/releases/download/v$SBT_VERSION/sbt-$SBT_VERSION.zip && \
     unzip -d /opt sbt-$SBT_VERSION.zip && \
     ln -s /opt/sbt-launcher-packaging-${SBT_VERSION} /opt/sbt && \
     apk del build-dependencies && \
     rm -rf sbt-$SBT_VERSION.zip && \
-    sbt sbt-version
+    sbt sbtVersion
 
 USER circleci
 
