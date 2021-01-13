@@ -19,7 +19,7 @@ LABEL maintainer "from scratch Co.Ltd."
 # variables:
 ###########################################################################
 
-ENV SBT_VERSION=1.13.6
+ENV SBT_VERSION=1.3.6
 ENV SBT_HOME /opt/sbt
 ENV PATH ${SBT_HOME}/bin:${SBT_HOME}/sbin:${PATH}
 
