@@ -28,8 +28,7 @@ ENV PATH ${SBT_HOME}/bin:${SBT_HOME}/sbin:${PATH}
 ###########################################################################
 
 RUN apk add --no-cache --virtual=build-dependencies curl && \
-    curl -jksSLH "Cookie: oraclelicense=accept-securebackup-cookie" -o "sbt-$SBT_VERSION.zip" \
-      https://dl.bintray.com/sbt/native-packages/sbt/$SBT_VERSION/sbt-$SBT_VERSION.zip && \
+    wget https://github.com/sbt/sbt/releases/download/v$SBT_VERSION/sbt-$SBT_VERSION.zip && \
     unzip -d /opt sbt-$SBT_VERSION.zip && \
     ln -s /opt/sbt-launcher-packaging-${SBT_VERSION} /opt/sbt && \
     apk del build-dependencies && \
