@@ -1,0 +1,42 @@
+###########################################################################
+#
+#--------------------------------------------------------------------------
+# Image Setup
+#--------------------------------------------------------------------------
+#
+# To change its version, see the available Tags on the Docker Hub:
+#    https://hub.docker.com/r/fromscratch/sbt/tags/
+#
+# Note: Base Image name format fromscratch/sbt:{sbt-version}_hadoop-{hadoop-version}_java-{java-version}-apline
+#
+###########################################################################
+
+FROM fromscratch/hadoop:2.7.3_8u181-alpine
+
+LABEL maintainer "from scratch Co.Ltd."
+
+###########################################################################
+# variables:
+###########################################################################
+
+ENV SBT_VERSION=1.5.7
+ENV SBT_HOME /opt/sbt
+ENV PATH ${SBT_HOME}/bin:${SBT_HOME}/sbin:${PATH}
+
+###########################################################################
+# sbt binary download
+###########################################################################
+
+RUN apk add --no-cache --virtual=build-dependencies wget ca-certificates && \
+    wget https://github.com/sbt/sbt/releases/download/v$SBT_VERSION/sbt-$SBT_VERSION.zip && \
+    unzip -d /opt sbt-$SBT_VERSION.zip && \
+    ln -s /opt/sbt-launcher-packaging-${SBT_VERSION} /opt/sbt && \
+    apk del build-dependencies && \
+    rm -rf sbt-$SBT_VERSION.zip && \
+    sbt sbtVersion
+
+USER circleci
+
+WORKDIR /target
+
+CMD ["/bin/sh"]
