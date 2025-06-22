@@ -1,0 +1,82 @@
+###########################################################################
+#
+#--------------------------------------------------------------------------
+# Image Setup
+#--------------------------------------------------------------------------
+#
+# To change its version, see the available Tags on the Docker Hub:
+#    https://hub.docker.com/r/fromscratch/ruby/tags/
+#
+# Note: Base Image name format fromscratch/ruby:{ruby-version}-amazonlinux{amazonlinux-version}-{ami-version}
+#
+###########################################################################
+
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
+
+LABEL maintainer "from scratch Co.Ltd."
+
+###########################################################################
+# Versions:
+###########################################################################
+
+ENV RUBY_MAJOR 2.7
+ENV RUBY_VERSION 2.7.1
+
+###########################################################################
+# Set Timezone
+###########################################################################
+
+ENV TZ Asia/Tokyo
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+###########################################################################
+# Common:
+###########################################################################
+
+RUN yum update -y && \
+    yum install -y git gcc gcc-c++ openssl openssl-devel readline-devel bzip2 sudo tar mariadb105 mariadb105-devel postgresql15 postgresql15-devel unixODBC unixODBC-devel perl-core && \
+    yum clean all
+
+###########################################################################
+# Ruby:
+###########################################################################
+
+RUN OPENSSL_VERSION="1.1.1w" && \
+    OPENSSL_PREFIX="/usr/local/openssl-${OPENSSL_VERSION}" && \
+    mkdir -p /build/openssl && \
+    curl -sL "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz" | tar -C /build/openssl -xzf - && \
+    cd "/build/openssl/openssl-${OPENSSL_VERSION}" && \
+    ./config --prefix=${OPENSSL_PREFIX} --openssldir=/etc/ssl shared && \
+    make -j"$(nproc)" && \
+    make install_sw && \
+    rm -fr /build/openssl && \
+    echo "${OPENSSL_PREFIX}/lib" > /etc/ld.so.conf.d/openssl-custom.conf && \
+    ldconfig
+
+RUN OPENSSL_VERSION="1.1.1w" && \
+    OPENSSL_PREFIX="/usr/local/openssl-${OPENSSL_VERSION}" && \
+    mkdir -p /build/ruby && \
+    curl -sL https://cache.ruby-lang.org/pub/ruby/$RUBY_MAJOR/ruby-$RUBY_VERSION.tar.gz | tar -C /build/ruby -xzf - && \
+    cd /build/ruby/ruby-$RUBY_VERSION && \
+    ./configure --with-openssl-dir=${OPENSSL_PREFIX} --disable-install-doc && \
+    make -j"$(nproc)" && \
+    make install && \
+    gem install bundler -v 2.4.22 && \
+    rm -fr /build/ruby
+
+###########################################################################
+# awscli and socat:
+###########################################################################
+
+RUN yum install -y python3 python3-devel python3-pip && \
+    python3 -m pip install awscli
+
+###########################################################################
+# update sudoers
+###########################################################################
+
+RUN sed -i "/secure_path/c\Defaults    secure_path = $PATH" /etc/sudoers
+
+WORKDIR /target
+
+CMD ["/bin/bash"]
