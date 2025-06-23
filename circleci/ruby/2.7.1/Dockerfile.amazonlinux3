@@ -34,7 +34,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 ###########################################################################
 
 RUN yum update -y && \
-    yum install -y git gcc gcc-c++ openssl openssl-devel readline-devel bzip2 sudo tar mariadb105 mariadb105-devel postgresql15 postgresql15-devel unixODBC unixODBC-devel perl-core && \
+    yum install -y git gcc gcc-c++ openssl openssl-devel readline-devel bzip2 sudo tar mariadb105 mariadb105-devel postgresql15 postgresql15-devel unixODBC unixODBC-devel perl-core shared-mime-info && \
     yum clean all
 
 ###########################################################################
