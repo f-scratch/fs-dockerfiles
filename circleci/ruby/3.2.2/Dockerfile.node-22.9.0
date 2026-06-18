@@ -1,0 +1,82 @@
+###########################################################################
+#
+#--------------------------------------------------------------------------
+# Image Setup
+#--------------------------------------------------------------------------
+#
+# To change its version, see the available Tags on the Docker Hub:
+#    https://hub.docker.com/r/fromscratch/ruby/tags/
+#
+# Note: Base Image name format fromscratch/ruby:{ruby-version}-node-{node-version}
+#       => fromscratch/ruby:3.2.2-node-22.9.0
+#
+# zelda-workflow4th の Vite 移行で Node 22 が必要なため追加。
+# 既存 Dockerfile.amazonlinux2 は amazonlinux2(glibc 2.26) のため Node 18+ の公式
+# prebuild(glibc 2.28+ 必須) が動かない。既存 node-14.21.3 と同様 Debian ベースの
+# 公式 ruby イメージを使い、Node は公式 node イメージ(同一 bookworm)から取り込む。
+#
+###########################################################################
+
+FROM ruby:3.2.2-bookworm
+
+LABEL maintainer "from scratch Co.Ltd."
+
+###########################################################################
+# variables:
+###########################################################################
+
+ENV NODE_VERSION 22.9.0
+ENV YARN_VERSION 1.22.22
+ENV RUBYOPT=-EUTF-8
+ENV DEBIAN_FRONTEND=noninteractive
+
+###########################################################################
+# node: 公式 node イメージ(同一 bookworm ベース)からコピー
+###########################################################################
+
+COPY --from=node:22.9.0-bookworm /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:22.9.0-bookworm /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+  && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+  && ln -sf /usr/local/lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack \
+  && node -v \
+  && npm -v
+
+###########################################################################
+# yarn: corepack で 1.x を有効化
+###########################################################################
+
+RUN corepack enable \
+  && corepack prepare yarn@${YARN_VERSION} --activate \
+  && yarn --version
+
+###########################################################################
+# native build deps / tools / awscli:
+#   amazonlinux2 版で入れていた mysql/pg/odbc 等の Debian 相当を揃える。
+#   shared-mime-info は mimemagic の native ext ビルドに必要。
+###########################################################################
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    git \
+    sudo \
+    tar \
+    bzip2 \
+    locales \
+    socat \
+    groff \
+    less \
+    default-libmysqlclient-dev \
+    default-mysql-client \
+    libpq-dev \
+    postgresql-client \
+    unixodbc-dev \
+    libyaml-dev \
+    shared-mime-info \
+    awscli \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /target
+
+CMD ["/bin/bash"]
