@@ -41,7 +41,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 ###########################################################################
 
 RUN echo "sslverify=false" >> /etc/dnf/dnf.conf
-RUN dnf install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel bzip2 sudo tar libyaml libyaml-devel autoconf make findutils
+RUN dnf install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel bzip2 sudo tar libyaml libyaml-devel autoconf make findutils zlib-devel libffi-devel gdbm-devel ncurses-devel
 
 ###########################################################################
 # MySQL client (community 8.0, provides libmysqlclient.so.21):
