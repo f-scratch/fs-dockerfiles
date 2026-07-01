@@ -1,0 +1,109 @@
+###########################################################################
+#
+#--------------------------------------------------------------------------
+# Image Setup
+#--------------------------------------------------------------------------
+#
+# To change its version, see the available Tags on the Docker Hub:
+#    https://hub.docker.com/r/fromscratch/ruby/tags/
+#
+# Note: Base Image name format fromscratch/ruby:{ruby-version}-amazonlinux{amazonlinux-version}
+#
+# デプロイ先サーバー(Amazon Linux 2023 / MySQL 8.0 community, libmysqlclient.so.21)に
+# 合わせるためのイメージ。mysql2 が .so.21 にリンクするよう mysql-community-* を使用する。
+# Ruby は --enable-shared --with-ext=openssl,psych,+ でビルドし、拡張ディレクトリを
+# デプロイ先(rbenv, --enable-shared)と一致(3.3.0, staticなし)させる。
+#
+###########################################################################
+
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
+
+LABEL maintainer "from scratch Co.Ltd."
+
+###########################################################################
+# Versions:
+###########################################################################
+
+ENV RUBY_MAJOR 3.3
+ENV RUBY_VERSION 3.3.4
+ENV NODE_VERSION 12.18.0
+ENV YARN_VERSION 1.22.5
+
+###########################################################################
+# Set Timezone
+###########################################################################
+
+ENV TZ Asia/Tokyo
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+###########################################################################
+# Common:
+###########################################################################
+
+RUN echo "sslverify=false" >> /etc/dnf/dnf.conf
+RUN dnf install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel bzip2 sudo tar libyaml libyaml-devel autoconf make findutils
+
+###########################################################################
+# MySQL client (community 8.0, provides libmysqlclient.so.21):
+#   デプロイ先の mysql-community-libs-8.0.x-1.el9 に合わせる
+###########################################################################
+
+RUN rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2023
+RUN dnf install -y https://dev.mysql.com/get/mysql80-community-release-el9-1.noarch.rpm
+RUN dnf install -y mysql-community-libs mysql-community-devel
+
+###########################################################################
+# Ruby:
+#   デプロイ先(rbenv)と同じ configure オプションでビルドし、
+#   拡張ディレクトリを 3.3.0 (staticなし) に揃える
+###########################################################################
+
+RUN mkdir -p /build/ruby
+RUN curl -k -o ruby.tar.gz https://cache.ruby-lang.org/pub/ruby/$RUBY_MAJOR/ruby-$RUBY_VERSION.tar.gz
+RUN tar -C /build/ruby -xzf ruby.tar.gz && rm ruby.tar.gz
+RUN cd /build/ruby/ruby-$RUBY_VERSION && \
+    ./configure --disable-install-doc --enable-shared --with-ext=openssl,psych,+ && \
+    make && make install && \
+    gem install bundler && \
+    rm -fr /build/ruby
+
+###########################################################################
+# node:
+###########################################################################
+
+ENV NVM_DIR /root/.nvm
+
+RUN echo $HOME && \
+    curl -k -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash && \
+    . $NVM_DIR/nvm.sh && nvm install ${NODE_VERSION} && \
+    nvm use ${NODE_VERSION} && \
+    nvm alias ${NODE_VERSION} && \
+    echo "" >> ~/.bashrc && \
+    echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc && \
+    echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm' >> ~/.bashrc && \
+    echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion' >> ~/.bashrc
+
+###########################################################################
+# YARN:
+###########################################################################
+
+RUN . $NVM_DIR/nvm.sh && nvm use ${NODE_VERSION} && npm install -g yarn@${YARN_VERSION}
+
+ENV PATH /root/.nvm/versions/node/v${NODE_VERSION}/bin:$PATH
+
+###########################################################################
+# awscli:
+###########################################################################
+
+RUN dnf install -y python3 python3-devel python3-pip && \
+    python3 -m pip install awscli
+
+###########################################################################
+# update sudoers
+###########################################################################
+
+RUN sed -i "/secure_path/c\Defaults    secure_path = $PATH" /etc/sudoers
+
+WORKDIR /target
+
+CMD ["/bin/bash"]
