@@ -46,7 +46,7 @@ RUN mkdir -p /build/ruby
 RUN curl -k -o ruby.tar.gz https://cache.ruby-lang.org/pub/ruby/$RUBY_MAJOR/ruby-$RUBY_VERSION.tar.gz
 RUN tar -C /build/ruby -xzf ruby.tar.gz && rm ruby.tar.gz
 RUN cd /build/ruby/ruby-$RUBY_VERSION && \
-    ./configure --disable-install-doc && \
+    ./configure --disable-install-doc --enable-shared --with-ext=openssl,psych,+ && \
     make && make install && \
     gem install bundler && \
     rm -fr /build/ruby
