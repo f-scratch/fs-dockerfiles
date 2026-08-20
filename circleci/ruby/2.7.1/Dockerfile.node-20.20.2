@@ -1,0 +1,132 @@
+###########################################################################
+#
+#--------------------------------------------------------------------------
+# Image Setup
+#--------------------------------------------------------------------------
+#
+# To change its version, see the available Tags on the Docker Hub:
+#    https://hub.docker.com/r/fromscratch/ruby/tags/
+#
+# Note: Base Image name format fromscratch/ruby:{ruby-version}-node-{node-version}
+#       => fromscratch/ruby:2.7.1-node-20.20.2
+#
+# zelda-platform4th の Vite 移行で Node 20 が必要なため追加。
+# build / code_analyze / rspec_and_check / generate_docs / update_design が
+# 同一イメージ内で yarn install → bundle → rake assets:precompile(= vite build)
+# を続けて実行するため、Ruby と Node の両方が同じイメージに必要。
+#
+# 3.2.2-node-22.9.0 と作り方が違う理由:
+#   3.2.2 は ruby:3.2.2-bookworm があるため node:22.9.0-bookworm から COPY できたが、
+#   Ruby 2.7.1 の公式イメージは Debian 10(buster) しか無く(bullseye 版は 2.7.4 以降)、
+#   node:20.20.2 に buster 変形が無いため同じ手が使えない。
+#   nodenv/node-build で公式 prebuild を導入する
+#   (Node 20 の要求は glibc 2.28+ で、buster はちょうど 2.28)。
+#
+###########################################################################
+
+FROM ruby:2.7.1
+
+LABEL maintainer "from scratch Co.Ltd."
+
+###########################################################################
+# variables:
+###########################################################################
+
+ENV NODE_VERSION 20.20.2
+ENV YARN_VERSION 1.22.22
+ENV RUBYOPT=-EUTF-8
+ENV DEBIAN_FRONTEND=noninteractive
+ENV HUB_VER 2.13.0
+ENV HUB_ARCH_TYPE linux-amd64
+ENV PATH /usr/local/node/bin:$PATH
+
+###########################################################################
+# apt: buster は EOL のため archive へ向ける
+#   deb.debian.org / security.debian.org から Release ファイルが撤去されており、
+#   素の apt-get update が失敗する。Ruby を上げられた時点でこのブロックごと削除可。
+###########################################################################
+
+RUN printf 'deb http://archive.debian.org/debian buster main\ndeb http://archive.debian.org/debian-security buster/updates main\n' > /etc/apt/sources.list \
+  && printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99no-check-valid-until
+
+###########################################################################
+# packages:
+#   ベースの ruby:2.7.1(buildpack-deps 系)に mysql / xml / xslt の dev ヘッダは
+#   既に含まれるため、ここでは不足分のみ入れる。
+#     unixodbc-dev         : ruby-odbc gem のビルド
+#     default-mysql-client : rspec の DB 準備
+#     graphviz             : .circleci/gen_doc.sh の `rake erd`(rails-erd)
+#     unzip                : awscli v2 インストーラの展開
+###########################################################################
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    sudo \
+    locales \
+    socat \
+    groff \
+    less \
+    unzip \
+    graphviz \
+    default-mysql-client \
+    unixodbc-dev \
+  && apt-get clean \
+  && rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/*
+
+###########################################################################
+# node: nodenv/node-build で公式 prebuild を導入
+#   node:*-buster が存在しないため COPY --from は使えない。
+###########################################################################
+
+RUN curl -sL https://github.com/nodenv/node-build/archive/master.tar.gz | tar xz -C /tmp/ \
+  && /tmp/node-build-master/bin/node-build "${NODE_VERSION}" /usr/local/node \
+  && rm -rf /tmp/node-build-master \
+  && node -v \
+  && npm -v
+
+###########################################################################
+# yarn:
+###########################################################################
+
+RUN npm install -g yarn@${YARN_VERSION} \
+  && yarn --version
+
+###########################################################################
+# awscli v2:
+#   .circleci/deployassets2s3.sh / gen_doc.sh が `aws s3` を使う。
+#   buster の python2 系 pip は EOL で使えないため公式バンドルで入れる。
+###########################################################################
+
+RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip \
+  && unzip -q /tmp/awscliv2.zip -d /tmp \
+  && /tmp/aws/install \
+  && rm -rf /tmp/awscliv2.zip /tmp/aws \
+  && aws --version
+
+###########################################################################
+# hub command:
+#   .circleci/update-design.sh が `hub pull-request` を使う。
+###########################################################################
+
+RUN curl -fsSLO https://github.com/github/hub/releases/download/v$HUB_VER/hub-$HUB_ARCH_TYPE-$HUB_VER.tgz \
+  && tar zxf hub-$HUB_ARCH_TYPE-$HUB_VER.tgz \
+  && ./hub-$HUB_ARCH_TYPE-$HUB_VER/install \
+  && rm -rf hub-$HUB_ARCH_TYPE-$HUB_VER hub-$HUB_ARCH_TYPE-$HUB_VER.tgz \
+  && hub --version
+
+###########################################################################
+# add user 'circleci':
+# cf. circleci/ruby:2.3.1-node
+# https://hub.docker.com/r/circleci/ruby/tags/
+###########################################################################
+
+RUN groupadd --gid 3434 circleci \
+  && useradd --uid 3434 --gid circleci --shell /bin/bash --create-home circleci \
+  && echo 'circleci ALL=NOPASSWD: ALL' >> /etc/sudoers.d/50-circleci \
+  && echo 'Defaults    env_keep += "DEBIAN_FRONTEND"' >> /etc/sudoers.d/env_keep
+
+USER circleci
+
+WORKDIR /target
+
+CMD ["/bin/bash"]
