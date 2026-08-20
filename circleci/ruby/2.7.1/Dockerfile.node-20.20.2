@@ -92,6 +92,16 @@ RUN npm install -g yarn@${YARN_VERSION} \
   && yarn --version
 
 ###########################################################################
+# /usr/local/bin へ symlink:
+#   ENV PATH だけではログインシェル(bash -l)で PATH が /etc/profile に
+#   上書きされ node/yarn が解決できない(RUN は sh -c なのでビルド中は気づけない)。
+#   既定 PATH に入る /usr/local/bin へ実体を通しておく。
+###########################################################################
+
+RUN for f in /usr/local/node/bin/*; do ln -sf "$f" "/usr/local/bin/$(basename "$f")"; done \
+  && bash -lc 'node -v && npm -v && yarn --version'
+
+###########################################################################
 # awscli v2:
 #   .circleci/deployassets2s3.sh / gen_doc.sh が `aws s3` を使う。
 #   buster の python2 系 pip は EOL で使えないため公式バンドルで入れる。
