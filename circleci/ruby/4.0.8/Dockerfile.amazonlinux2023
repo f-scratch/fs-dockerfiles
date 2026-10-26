@@ -1,0 +1,85 @@
+###########################################################################
+#
+#--------------------------------------------------------------------------
+# Image Setup
+#--------------------------------------------------------------------------
+#
+# To change its version, see the available Tags on the Docker Hub:
+#    https://hub.docker.com/r/fromscratch/ruby/tags/
+#
+# Note: Base Image name format fromscratch/ruby:{ruby-version}-amazonlinux{amazonlinux-version}-{ami-version}
+#
+# CircleCI で batch 用の tgz（vendor/bundle 入り）を作るためのイメージ。
+# デプロイ先の AMI（darunia-terraformar の ec2_images.rails_ruby4_0。Amazon Linux 2023・
+# Ruby 4.0.8）と、OS・Ruby・MySQL クライアントをそろえる。
+# AMI の Ruby は rbenv（ruby-build）で --enable-shared 付き。static の Ruby で作った native 拡張は
+# extensions/x86_64-linux/4.0.0-static に置かれ、shared の Ruby からは未ビルドに見えるため、ここも --enable-shared にする。
+# MySQL クライアントは AMI と同じ MySQL 8.0.39（libmysqlclient.so.21）。mariadb105 では
+# mysql2 が libmariadb にリンクされ、AMI の上で読めない。
+#
+###########################################################################
+
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
+
+LABEL maintainer "from scratch Co.Ltd."
+
+###########################################################################
+# Versions:
+###########################################################################
+
+ENV RUBY_MAJOR 4.0
+ENV RUBY_VERSION 4.0.8
+# https://cache.ruby-lang.org/pub/ruby/index.txt の ruby-4.0.8.tar.gz の sha256
+ENV RUBY_SHA256 0968e2ac4cbd6f1fd85d3092aed66cd3c2d8ba4a5e2493d6e6c6cb0c431897d2
+# AMI（rails6_ruby3_3 から作る rails_ruby4_0）の mysql-community-* の版
+ENV MYSQL_VERSION 8.0.39
+
+###########################################################################
+# Set Timezone
+###########################################################################
+
+ENV TZ Asia/Tokyo
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+###########################################################################
+# Common:
+###########################################################################
+
+RUN dnf install -y git gcc gcc-c++ make autoconf tar gzip bzip2 which findutils procps-ng sudo openssh-clients \
+      openssl openssl-devel libyaml libyaml-devel libffi-devel zlib-devel readline-devel \
+      unixODBC unixODBC-devel shared-mime-info && \
+    dnf clean all
+
+###########################################################################
+# MySQL client (MySQL 8.0.39 / libmysqlclient.so.21):
+###########################################################################
+
+RUN rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2023 && \
+    dnf install -y https://dev.mysql.com/get/mysql80-community-release-el9-5.noarch.rpm && \
+    dnf install -y mysql-community-client-$MYSQL_VERSION mysql-community-devel-$MYSQL_VERSION && \
+    dnf clean all
+
+###########################################################################
+# Ruby:
+###########################################################################
+
+RUN mkdir -p /build/ruby && \
+    curl -fsSL -o /build/ruby.tar.gz https://cache.ruby-lang.org/pub/ruby/$RUBY_MAJOR/ruby-$RUBY_VERSION.tar.gz && \
+    echo "$RUBY_SHA256  /build/ruby.tar.gz" | sha256sum -c - && \
+    tar -C /build/ruby -xzf /build/ruby.tar.gz && \
+    cd /build/ruby/ruby-$RUBY_VERSION && \
+    ./configure --prefix=/usr/local --enable-shared --disable-install-doc && \
+    make -j"$(nproc)" && \
+    make install && \
+    rm -fr /build && \
+    ldconfig
+
+###########################################################################
+# update sudoers
+###########################################################################
+
+RUN sed -i "/secure_path/c\Defaults    secure_path = $PATH" /etc/sudoers
+
+WORKDIR /target
+
+CMD ["/bin/bash"]
