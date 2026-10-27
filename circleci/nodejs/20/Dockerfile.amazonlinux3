@@ -1,0 +1,74 @@
+###########################################################################
+#
+#--------------------------------------------------------------------------
+# Image Setup
+#--------------------------------------------------------------------------
+#
+# To change its version, see the available Tags on the Docker Hub:
+#    https://hub.docker.com/r/fromscratch/nodejs/tags/
+#
+# Note: Base Image name format fromscratch/nodejs:{nodejs-version}-amazonlinux{amazonlinux-version}-{ami-version}
+#
+###########################################################################
+
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
+
+LABEL maintainer "from scratch Co.Ltd."
+
+###########################################################################
+# Versions:
+###########################################################################
+
+ENV NODE_VERSION 20.19.3
+ENV YARN_VERSION 1.22.10
+
+###########################################################################
+# Common:
+###########################################################################
+
+RUN yum update -y && \
+    yum install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel mariadb105 mariadb105-devel bzip2 sudo tar jq
+
+###########################################################################
+# node:
+###########################################################################
+
+ENV NVM_DIR /root/.nvm
+
+RUN echo $HOME && \
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash && \
+    . $NVM_DIR/nvm.sh && \
+    nvm install ${NODE_VERSION} && \
+    nvm use ${NODE_VERSION} && \
+    nvm alias ${NODE_VERSION} && \
+    echo "" >> ~/.bashrc && \
+    echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc && \
+    echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm' >> ~/.bashrc && \
+    echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion' >> ~/.bashrc
+
+###########################################################################
+# YARN:
+###########################################################################
+
+RUN [ -s "$NVM_DIR/nvm.sh" ] && \
+    . $NVM_DIR/nvm.sh && \
+    npm install -g yarn@${YARN_VERSION} && \
+    echo "" >> ~/.bashrc && \
+    echo 'export PATH="$HOME/.yarn/bin:$PATH"' >> ~/.bashrc
+
+###########################################################################
+# awscli and socat:
+###########################################################################
+
+RUN yum install -y python3 python3-devel python3-pip && \
+    python3 -m pip install awscli
+
+###########################################################################
+# update sudoers
+###########################################################################
+
+RUN sed -i "/secure_path/c\Defaults    secure_path = $PATH" /etc/sudoers
+
+WORKDIR /target
+
+CMD ["/bin/bash"]
