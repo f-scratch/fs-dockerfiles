@@ -1,0 +1,30 @@
+# Existing CI tools and Ruby are retained; Node is installed at image build time.
+FROM fromscratch/ruby:2.7.1-node-12.18.0@sha256:be9a1a3ff8a6075c2647a017b546ad7732042324b6e8c91138144db9c738e99f
+
+USER root
+
+ENV NODE_VERSION=24.19.0 \
+    YARN_VERSION=1.22.22
+
+RUN set -eu; \
+    case "$(dpkg --print-architecture)" in \
+      amd64) node_arch=x64 ;; \
+      *) echo 'This CI image requires linux/amd64' >&2; exit 1 ;; \
+    esac; \
+    distribution="node-v${NODE_VERSION}-linux-${node_arch}"; \
+    mkdir /tmp/node-install; \
+    cd /tmp/node-install; \
+    curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/${distribution}.tar.xz"; \
+    curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt"; \
+    grep " ${distribution}.tar.xz$" SHASUMS256.txt | sha256sum --check --strict; \
+    rm -rf /usr/local/lib/node_modules/npm; \
+    tar -xJf "${distribution}.tar.xz" -C /usr/local --strip-components=1 --no-same-owner; \
+    rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg; \
+    npm install -g "yarn@${YARN_VERSION}"; \
+    test "$(node --version)" = "v${NODE_VERSION}"; \
+    test "$(yarn --version)" = "${YARN_VERSION}"; \
+    rm -rf /tmp/node-install
+
+USER circleci
+WORKDIR /target
+CMD ["/bin/sh"]
