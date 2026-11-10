@@ -31,7 +31,7 @@ ENV RUBY_MAJOR 4.0
 ENV RUBY_VERSION 4.0.9
 # https://cache.ruby-lang.org/pub/ruby/index.txt の ruby-4.0.9.tar.gz の sha256
 ENV RUBY_SHA256 c35350682ff050b79702d57ade4516e7336063f510155d19fb2fb5b3f3909511
-# AMI（rails6_ruby3_3 から作る rails_ruby4_0）の mysql-community-* の版
+# AMI（今の rails_ruby4_0 から作る rails_ruby4_0_9）の mysql-community-* の版
 ENV MYSQL_VERSION 8.0.39
 
 ###########################################################################
