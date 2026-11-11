@@ -1,0 +1,101 @@
+###########################################################################
+#
+#--------------------------------------------------------------------------
+# Image Setup
+#--------------------------------------------------------------------------
+#
+# To change its version, see the available Tags on the Docker Hub:
+#    https://hub.docker.com/r/fromscratch/ruby/tags/
+#
+# Note: Base Image name format fromscratch/ruby:{ruby-version}-node-{node-version}
+#       => fromscratch/ruby:3.3.4-node-24.19.0
+#
+# zelda-concierge4th の Vite 移行で Node 24 が必要なため追加。
+# 版は zelda-platform4th / zelda-preparation4th の .node-version(24.19.0)に揃える。
+# build / code_analyze / rspec_and_check が同一イメージ内で
+# yarn install → bundle → rake assets:precompile(= vite build) を続けて実行するため、
+# Ruby と Node の両方が同じイメージに必要(Node 単体イメージでは解決しない)。
+#
+# 既存の 3.3.4-node-14.21.3 との違いは Node と yarn の入れ方だけで、
+# パッケージ・awscli・hub・circleci ユーザーの作り方は同じにしている。
+#   - ruby:3.3.4 は bookworm なので、Node は同じ bookworm の公式 node イメージから COPY する
+#     (nodejs.org の tarball を gpg で検証する方式は、署名者が増えるたびに鍵一覧の更新が要る)
+#   - yarn は npm で入れる(旧来の鍵の取得先 sks-keyservers は停止している)
+#
+###########################################################################
+
+FROM ruby:3.3.4-bookworm
+
+LABEL maintainer "from scratch Co.Ltd."
+
+###########################################################################
+# variables:
+###########################################################################
+
+ENV NODE_VERSION 24.19.0
+ENV YARN_VERSION 1.22.22
+ENV RUBYOPT=-EUTF-8
+ENV DEBIAN_FRONTEND=noninteractive
+ENV HUB_VER 2.13.0
+ENV HUB_ARCH_TYPE linux-amd64
+
+###########################################################################
+# node: 公式 node イメージ(同じ bookworm)からコピー
+###########################################################################
+
+RUN groupadd --gid 1000 node \
+  && useradd --uid 1000 --gid node --shell /bin/bash --create-home node
+
+COPY --from=node:24.19.0-bookworm /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:24.19.0-bookworm /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+  && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+  && ln -sf /usr/local/bin/node /usr/local/bin/nodejs \
+  && test "$(node -v)" = "v${NODE_VERSION}" \
+  && npm -v
+
+###########################################################################
+# yarn:
+#   ログインシェル(bash -l)でも解決できることを確かめる。
+#   RUN は sh -c で動くため、PATH の問題はここで確かめないと実行時まで気づけない。
+###########################################################################
+
+RUN npm install -g yarn@${YARN_VERSION} \
+  && bash -lc 'node -v && npm -v && yarn --version'
+
+###########################################################################
+# awscli and socat:
+###########################################################################
+
+RUN apt-get update && apt-get install -y python3 python3-dev python3-pip python3-setuptools groff less socat sudo locales graphviz default-mysql-client unixodbc-dev python3-venv && \
+    python3 -m venv /opt/venv && \
+    . /opt/venv/bin/activate && \
+    pip install --upgrade awscli && \
+    apt-get clean && \
+    rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/*
+
+###########################################################################
+# hub command:
+###########################################################################
+
+RUN wget https://github.com/github/hub/releases/download/v$HUB_VER/hub-$HUB_ARCH_TYPE-$HUB_VER.tgz \
+  && tar zvxvf hub-$HUB_ARCH_TYPE-$HUB_VER.tgz \
+  && ./hub-$HUB_ARCH_TYPE-$HUB_VER/install \
+  && rm -rf hub-$HUB_ARCH_TYPE-$HUB_VER
+
+###########################################################################
+# add user 'circleci':
+# cf. circleci/ruby:2.3.1-node
+# https://hub.docker.com/r/circleci/ruby/tags/
+###########################################################################
+
+RUN groupadd --gid 3434 circleci \
+  && useradd --uid 3434 --gid circleci --shell /bin/bash --create-home circleci \
+  && echo 'circleci ALL=NOPASSWD: ALL' >> /etc/sudoers.d/50-circleci \
+  && echo 'Defaults    env_keep += "DEBIAN_FRONTEND"' >> /etc/sudoers.d/env_keep
+
+USER circleci
+
+WORKDIR /target
+
+CMD ["/bin/sh"]
