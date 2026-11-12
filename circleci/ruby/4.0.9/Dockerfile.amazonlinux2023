@@ -16,10 +16,14 @@
 # extensions/x86_64-linux/4.0.0-static に置かれ、shared の Ruby からは未ビルドに見えるため、ここも --enable-shared にする。
 # MySQL クライアントは AMI と同じ MySQL 8.0.39（libmysqlclient.so.21）。mariadb105 では
 # mysql2 が libmariadb にリンクされ、AMI の上で読めない。
+# OS のリリースも AMI と同じ AL2023 2023.12.20261109 に固定する（openssl-libs 3.5.8・glibc 2.34-231）。
+# タグ「2023」のままだと AWS が新しいリリースを出すたびに OpenSSL・glibc が AMI とずれ、
+# ここで作った native 拡張が AMI の上で読めなくなる恐れがある。AMI の土台を上げるときは、ここも一緒に上げる。
 #
 ###########################################################################
 
-FROM public.ecr.aws/amazonlinux/amazonlinux:2023
+ARG AL2023_RELEASE=2023.12.20261109
+FROM public.ecr.aws/amazonlinux/amazonlinux:${AL2023_RELEASE}.0
 
 LABEL maintainer "from scratch Co.Ltd."
 
@@ -40,6 +44,14 @@ ENV MYSQL_VERSION 8.0.39
 
 ENV TZ Asia/Tokyo
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+###########################################################################
+# OS release (AMI と同じリリースであること。dnf はこのリリースのリポジトリから入れる):
+###########################################################################
+
+ARG AL2023_RELEASE
+RUN [ "$(rpm -q --qf '%{VERSION}' system-release)" = "$AL2023_RELEASE" ] || \
+      { echo "system-release is not ${AL2023_RELEASE}: $(rpm -q system-release)"; exit 1; }
 
 ###########################################################################
 # Common:
