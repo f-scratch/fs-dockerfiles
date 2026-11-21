@@ -37,7 +37,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 ###########################################################################
 
 RUN echo "sslverify=false" >> /etc/yum.conf
-RUN yum install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel mysql mysql-devel bzip2 postgresql postgresql-devel sudo tar libiodbc unixODBC.x86_64 unixODBC-devel.x86_64 libyaml libyaml-devel autoconf
+RUN yum install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel mysql mysql-devel bzip2 postgresql postgresql-devel sudo tar libiodbc unixODBC.x86_64 unixODBC-devel.x86_64 libyaml libyaml-devel autoconf make zlib-devel libffi-devel xz
 
 ###########################################################################
 # Ruby:
