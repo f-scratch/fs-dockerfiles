@@ -1,0 +1,112 @@
+###########################################################################
+#
+#--------------------------------------------------------------------------
+# Image Setup
+#--------------------------------------------------------------------------
+#
+# To change its version, see the available Tags on the Docker Hub:
+#    https://hub.docker.com/r/fromscratch/ruby/tags/
+#
+# Note: Base Image name format fromscratch/ruby:{ruby-version}-amazonlinux{amazonlinux-version}-{ami-version}
+#       => fromscratch/ruby:3.4.13-amazonlinux2.0.20230822.0
+#
+# zelda-preparation4th の EC2 デプロイ用 bundle(prepare_bundle ジョブ)を作るイメージ。
+# Ruby の脆弱性 Ruby2Shell(1バイト系エンコーディングの大文字小文字変換でのヒープ
+# オーバーフロー)対応で 3.2.2 から上げる。3.2 系には修正版が出ないため、修正済みの
+# 3.4.13 にする。
+#
+# configure はデプロイ先サーバーの Ruby と揃える(3.3.4 版と同じ --enable-shared)。
+# 揃っていないと拡張ディレクトリ(3.4.0 / 3.4.0-static)が食い違い、デプロイ先で
+# gem の materialize に失敗する。
+#
+###########################################################################
+
+FROM amazonlinux:2.0.20230822.0
+
+LABEL maintainer "from scratch Co.Ltd."
+
+###########################################################################
+# Versions:
+###########################################################################
+
+ENV RUBY_MAJOR 3.4
+ENV RUBY_VERSION 3.4.13
+# https://cache.ruby-lang.org/pub/ruby/index.txt の ruby-3.4.13.tar.gz の sha256
+ENV RUBY_SHA256 d0d3bf3dd8c224a3c3b7ecd816a0f1b2cbcf4f87b5afcbdbe91d3fef177f351a
+ENV NODE_VERSION 12.18.0
+ENV YARN_VERSION 1.22.5
+
+###########################################################################
+# Set Timezone
+###########################################################################
+
+ENV TZ Asia/Tokyo
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+###########################################################################
+# Common:
+###########################################################################
+
+RUN echo "sslverify=false" >> /etc/yum.conf
+# xz: nokogiri をソースからビルドするとき、同梱の libxml2(.tar.xz)の展開に xzcat を使う
+RUN yum install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel mysql mysql-devel bzip2 postgresql postgresql-devel sudo tar libiodbc unixODBC.x86_64 unixODBC-devel.x86_64 libyaml libyaml-devel autoconf xz
+
+###########################################################################
+# Ruby:
+###########################################################################
+
+RUN mkdir -p /build/ruby
+# -k は amazonlinux2 の古い CA 証明書のために残す。改ざんは sha256 で検出する。
+RUN curl -fsSL -k -o ruby.tar.gz https://cache.ruby-lang.org/pub/ruby/$RUBY_MAJOR/ruby-$RUBY_VERSION.tar.gz && \
+    echo "$RUBY_SHA256  ruby.tar.gz" | sha256sum -c -
+RUN tar -C /build/ruby -xzf ruby.tar.gz && rm ruby.tar.gz
+RUN cd /build/ruby/ruby-$RUBY_VERSION && \
+    ./configure --disable-install-doc --enable-shared --with-ext=openssl,psych,+ && \
+    make && make install && \
+    gem install bundler && \
+    rm -fr /build/ruby
+
+###########################################################################
+# node:
+###########################################################################
+
+ENV NVM_DIR /root/.nvm
+
+RUN echo $HOME && \
+    curl -k -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash && \
+    . $NVM_DIR/nvm.sh && nvm install ${NODE_VERSION} && \
+    nvm use ${NODE_VERSION} && \
+    nvm alias ${NODE_VERSION} && \
+    npm install eslint --save-dev && \
+    echo "" >> ~/.bashrc && \
+    echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc && \
+    echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm' >> ~/.bashrc && \
+    echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion' >> ~/.bashrc
+
+###########################################################################
+# YARN:
+###########################################################################
+
+RUN . $NVM_DIR/nvm.sh && nvm use ${NODE_VERSION} && npm install -g yarn
+
+ENV PATH /root/.nvm/versions/node/v${NODE_VERSION}/bin:$PATH
+
+###########################################################################
+# awscli and socat:
+###########################################################################
+
+RUN yum install -y python3 python3-devel
+RUN pip3 install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host=files.pythonhosted.org --upgrade pip
+
+RUN pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host=files.pythonhosted.org --upgrade setuptools && \
+    pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host=files.pythonhosted.org awscli
+
+###########################################################################
+# update sudoers
+###########################################################################
+
+RUN sed -i "/secure_path/c\Defaults    secure_path = $PATH" /etc/sudoers
+
+WORKDIR /target
+
+CMD ["/bin/bash"]
