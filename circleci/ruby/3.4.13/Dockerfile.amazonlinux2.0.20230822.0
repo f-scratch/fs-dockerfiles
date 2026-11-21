@@ -19,8 +19,9 @@ LABEL maintainer "from scratch Co.Ltd."
 # Versions:
 ###########################################################################
 
+ENV RUBY_MAJOR 3.4
 ENV RUBY_VERSION 3.4.13
-ENV RUBY_BUILD_VERSION v20261119
+ENV RUBY_SHA256 d0d3bf3dd8c224a3c3b7ecd816a0f1b2cbcf4f87b5afcbdbe91d3fef177f351a
 ENV NODE_VERSION 12.18.0
 ENV YARN_VERSION 1.22.5
 
@@ -42,12 +43,14 @@ RUN yum install -y git gcc gcc-c++ openssl openssl-devel readline readline-devel
 # Ruby:
 ###########################################################################
 
-# ruby-build でビルドする（版ごとの既定の configure を使い、システムの OpenSSL が使えなければ OpenSSL も一緒にビルドする）。
-RUN yum install -y make patch zlib-devel libffi-devel perl perl-IPC-Cmd perl-Time-Piece perl-Data-Dumper
-RUN git clone --depth 1 --branch $RUBY_BUILD_VERSION https://github.com/rbenv/ruby-build.git /build/ruby-build && \
-    RUBY_CONFIGURE_OPTS=--disable-install-doc /build/ruby-build/bin/ruby-build $RUBY_VERSION /usr/local && \
+RUN mkdir -p /build/ruby
+RUN curl -k -o ruby.tar.gz https://cache.ruby-lang.org/pub/ruby/$RUBY_MAJOR/ruby-$RUBY_VERSION.tar.gz
+RUN echo "$RUBY_SHA256  ruby.tar.gz" | sha256sum -c - && tar -C /build/ruby -xzf ruby.tar.gz && rm ruby.tar.gz
+RUN cd /build/ruby/ruby-$RUBY_VERSION && \
+    ./configure --disable-install-doc && \
+    make && make install && \
     gem install bundler && \
-    rm -fr /build/ruby-build
+    rm -fr /build/ruby
 
 ###########################################################################
 # node:
