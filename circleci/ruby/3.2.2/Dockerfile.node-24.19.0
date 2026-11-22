@@ -1,0 +1,116 @@
+###########################################################################
+#
+#--------------------------------------------------------------------------
+# Image Setup
+#--------------------------------------------------------------------------
+#
+# To change its version, see the available Tags on the Docker Hub:
+#    https://hub.docker.com/r/fromscratch/ruby/tags/
+#
+# Note: Base Image name format fromscratch/ruby:{ruby-version}-node-{node-version}
+#       => fromscratch/ruby:3.2.2-node-24.19.0
+#
+# zelda-preparation4th の Vite 移行(IMP_BD000106)で Node 24 が必要なため追加。
+# Vite 7 の engines は "^20.19.0 || >=22.12.0" で、既存の 3.2.2-node-22.9.0 は
+# 22.9.0 のため範囲外。アプリの .node-version と揃えて 24.19.0 にする。
+#
+# build / code_analyze / rspec_and_check / deploy_assets_to_s3 / generate_docs /
+# update_design が同一イメージ内で yarn install → bundle → rake assets:precompile
+# (= vite build) を続けて実行するため、Ruby と Node の両方が同じイメージに必要
+# (Node 単体イメージでは解決しない)。
+#
+# 既存 Dockerfile.amazonlinux2 は amazonlinux2(glibc 2.26) のため Node 18+ の公式
+# prebuild(glibc 2.28+ 必須) が動かない。Debian ベースの公式 ruby イメージを使い、
+# Node は同一 bookworm の公式 node イメージから取り込む。
+#
+###########################################################################
+
+FROM ruby:3.2.2-bookworm
+
+LABEL maintainer "from scratch Co.Ltd."
+
+###########################################################################
+# variables:
+###########################################################################
+
+ENV NODE_VERSION 24.19.0
+ENV YARN_VERSION 1.22.22
+ENV RUBYOPT=-EUTF-8
+ENV DEBIAN_FRONTEND=noninteractive
+ENV HUB_VER 2.13.0
+ENV HUB_ARCH_TYPE linux-amd64
+
+###########################################################################
+# node: 公式 node イメージ(同一 bookworm ベース)からコピー
+###########################################################################
+
+COPY --from=node:24.19.0-bookworm /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:24.19.0-bookworm /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+  && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+  && ln -sf /usr/local/lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack \
+  && node -v \
+  && npm -v
+
+###########################################################################
+# yarn: corepack で 1.x を有効化
+###########################################################################
+
+RUN corepack enable \
+  && corepack prepare yarn@${YARN_VERSION} --activate \
+  && yarn --version
+
+###########################################################################
+# native build deps / tools / awscli:
+#   amazonlinux2 版で入れていた mysql/pg/odbc 等の Debian 相当を揃える。
+#   shared-mime-info は mimemagic の native ext ビルドに必要。
+#
+#   .circleci/ 配下のスクリプトが要求するもの:
+#     graphviz    : gen_doc.sh の `dot` / `rake erd`(rails-erd) → generate_docs
+#     unzip       : aws-cli orb のインストーラ展開 / deployassets2s3.sh
+#     util-linux  : deploy_assets_to_s3 の `sudo yum install -y unzip util-linux` 相当
+#     bc / jq     : post_pr_comment.sh のカバレッジ判定 → compare_coverage
+#     xz-utils    : build ジョブの native gem ビルド
+###########################################################################
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    git \
+    sudo \
+    tar \
+    bzip2 \
+    xz-utils \
+    unzip \
+    util-linux \
+    bc \
+    jq \
+    locales \
+    socat \
+    groff \
+    less \
+    graphviz \
+    default-libmysqlclient-dev \
+    default-mysql-client \
+    libpq-dev \
+    postgresql-client \
+    unixodbc-dev \
+    libyaml-dev \
+    shared-mime-info \
+    awscli \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+###########################################################################
+# hub command:
+#   .circleci/update-design.sh が `hub pull-request` を使う。
+###########################################################################
+
+RUN curl -fsSLO https://github.com/github/hub/releases/download/v$HUB_VER/hub-$HUB_ARCH_TYPE-$HUB_VER.tgz \
+  && tar zxf hub-$HUB_ARCH_TYPE-$HUB_VER.tgz \
+  && ./hub-$HUB_ARCH_TYPE-$HUB_VER/install \
+  && rm -rf hub-$HUB_ARCH_TYPE-$HUB_VER hub-$HUB_ARCH_TYPE-$HUB_VER.tgz \
+  && hub --version
+
+WORKDIR /target
+
+CMD ["/bin/bash"]
